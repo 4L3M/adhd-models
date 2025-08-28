@@ -5,12 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d1b5bfad-6478-4c0e-81ce-cf11cea9662a" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/model_v3_basic.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model_v4.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/PythonProject.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PythonProject.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model_v2.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_v2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model_v3_basic.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_v3_basic.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model_v4.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_v4.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,6 +38,7 @@
     "Python.model.executor": "Run",
     "Python.model_v2.executor": "Run",
     "Python.model_v3_basic.executor": "Run",
+    "Python.model_v4.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -72,14 +70,26 @@
       <option name="presentableId" value="Default" />
       <updated>1756322753489</updated>
       <workItem from="1756396136983" duration="14000" />
-      <workItem from="1756396192782" duration="4037000" />
+      <workItem from="1756396192782" duration="5102000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/model_v3_basic.py</url>
+          <line>3</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/adhd_models$model_v3_basic.coverage" NAME="model_v3_basic Coverage Results" MODIFIED="1756399319193" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/adhd_models$model_v4.coverage" NAME="model_v4 Coverage Results" MODIFIED="1756401879423" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

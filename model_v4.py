@@ -1,4 +1,5 @@
 from pathlib import Path
+#wynik wstępnie był 77%
 
 import kagglehub
 import numpy as np
@@ -16,6 +17,7 @@ CSV_PATH = "your_dataset.csv"      # <- zmień na swoją ścieżkę
 path = kagglehub.dataset_download("danizo/eeg-dataset-for-adhd")
 print("Path to dataset:", path)
 data_path = Path(path) / "adhdata.csv"
+CSV_PATH = data_path
 
 FS = 128
 EPOCH_SEC = 2
@@ -83,7 +85,9 @@ def EEGNet(nb_classes, Chans, Samples, dropoutRate=0.5, kernLength=64, F1=8, D=2
 unique_subjects = np.unique(groups)
 all_aucs, all_bal_accs = [], []
 
-for subj in tqdm(unique_subjects):
+print(f"Rozpoczynam LOSO dla {len(unique_subjects)} pacjentów...")
+
+for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
     train_idx = groups != subj
     test_idx = groups == subj
 
@@ -96,24 +100,23 @@ for subj in tqdm(unique_subjects):
     model = EEGNet(nb_classes=2, Chans=X_epochs.shape[1], Samples=X_epochs.shape[2])
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    # fit model
-    history = model.fit(X_train, y_train_cat, epochs=30, batch_size=32, verbose=0,
+    print(f"\n[Pacjent {i + 1}/{len(unique_subjects)}] ID={subj}: Trening modelu...")
+    history = model.fit(X_train, y_train_cat, epochs=30, batch_size=32, verbose=1,
                         validation_data=(X_test, y_test_cat))
 
-    # save model
+    # zapisz model
     model_path = os.path.join(MODEL_SAVE_DIR, f"EEGNet_subj_{subj}.h5")
     model.save(model_path)
 
-    # predict
-    probs = model.predict(X_test)
+    # predykcja i metryki
+    probs = model.predict(X_test, verbose=0)
     preds = np.argmax(probs, axis=1)
-
-    # metrics
-    auc = roc_auc_score(y_test, probs[:,1])
+    auc = roc_auc_score(y_test, probs[:, 1])
     bal_acc = (preds == y_test).mean()
 
     all_aucs.append(auc)
     all_bal_accs.append(bal_acc)
 
+    print(f"[Pacjent {i + 1}/{len(unique_subjects)}] ID={subj}: AUC={auc:.3f}, Balanced Acc={bal_acc:.3f}")
 print(f"LOSO EEGNet results: AUC={np.mean(all_aucs):.3f} ± {np.std(all_aucs):.3f}, "
       f"Balanced Acc={np.mean(all_bal_accs):.3f}")

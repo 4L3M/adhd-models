@@ -1,6 +1,9 @@
 # eeg_adhd_feature_pipeline.py
+#wynik ok 70%
+
 from pathlib import Path
 
+from tqdm import tqdm
 import kagglehub
 import numpy as np
 import pandas as pd
