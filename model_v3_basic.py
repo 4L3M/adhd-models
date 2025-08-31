@@ -1,11 +1,15 @@
 # eeg_adhd_feature_pipeline.py
 #wynik ok 70%
 
+#2. Dodanie cech FFT do ekstrakcji cech
+
+
 from pathlib import Path
 
 from tqdm import tqdm
 import kagglehub
 import numpy as np
+from numpy.fft import rfft, rfftfreq
 import pandas as pd
 from scipy.signal import welch
 from scipy.stats import skew, kurtosis
@@ -100,12 +104,42 @@ def zero_crossing_rate(x):
 #     feat["global_mean_spec_entropy"] = np.mean([feat[f"{ch}_spec_entropy"] for ch in channels])
 #     return feat
 
+from numpy.fft import rfft, rfftfreq
+
+def fft_features_epoch(epoch, channels, fs=FS):
+    """Wyciąga cechy na podstawie FFT dla każdej epoki i kanału."""
+    n_ch, n_s = epoch.shape
+    feat = {}
+    for ci, ch in enumerate(channels):
+        x = epoch[ci, :]
+        # FFT
+        fft_vals = np.abs(rfft(x))
+        freqs = rfftfreq(n_s, 1/fs)
+
+        # cechy: max, średnia, energia w pasmach
+        feat[f"{ch}_fft_max"] = np.max(fft_vals)
+        feat[f"{ch}_fft_mean"] = np.mean(fft_vals)
+        feat[f"{ch}_fft_std"] = np.std(fft_vals)
+        feat[f"{ch}_fft_energy"] = np.sum(fft_vals**2)
+
+        # energia w pasmach EEG
+        for band_name, (low, high) in BANDS.items():
+            idx = np.logical_and(freqs >= low, freqs <= high)
+            band_energy = np.sum(fft_vals[idx]**2)
+            feat[f"{ch}_fft_energy_{band_name}"] = band_energy
+            # względna energia
+            total_energy = np.sum(fft_vals**2)
+            feat[f"{ch}_fft_rel_energy_{band_name}"] = band_energy / (total_energy + 1e-12)
+    return feat
+
+
 def extract_features_epoch(epoch, channels):
     n_ch, n_s = epoch.shape
     feat = {}
     for ci, ch in enumerate(channels):
         x = epoch[ci, :]
-        # statystyki czasowe
+
+        # -------- Statystyki czasowe --------
         feat[f"{ch}_mean"] = np.mean(x)
         feat[f"{ch}_std"] = np.std(x)
         feat[f"{ch}_var"] = np.var(x)
@@ -115,13 +149,13 @@ def extract_features_epoch(epoch, channels):
         feat[f"{ch}_ptp"] = np.ptp(x)
         feat[f"{ch}_zcr"] = zero_crossing_rate(x)
 
-        # Hjorth
+        # -------- Hjorth --------
         a,m,c = hjorth_parameters(x)
         feat[f"{ch}_hjorth_activity"] = a
         feat[f"{ch}_hjorth_mobility"] = m
         feat[f"{ch}_hjorth_complexity"] = c
 
-        # PSD
+        # -------- PSD --------
         f, Pxx = welch(x, fs=FS, nperseg=min(256, n_s))
         feat[f"{ch}_spec_entropy"] = spectral_entropy_from_psd(Pxx, f)
         total_power = 0.0
@@ -137,21 +171,24 @@ def extract_features_epoch(epoch, channels):
             feat[f"{ch}_relbp_{band_name}"] = band_pows[band_name] / denom
         feat[f"{ch}_total_power"] = total_power
 
-        # ----- Theta/Beta Ratio -----
+        # -------- Theta/Beta Ratio --------
         feat[f"{ch}_tbr"] = band_pows["theta"] / (band_pows["beta"] + 1e-12)
 
-    # global features
+    # -------- Global features --------
     for band_name in BANDS.keys():
         vals = [feat[f"{ch}_bp_{band_name}"] for ch in channels]
         feat[f"global_mean_bp_{band_name}"] = np.mean(vals)
         feat[f"global_std_bp_{band_name}"] = np.std(vals)
-
-    # global mean TBR
     tbr_vals = [feat[f"{ch}_tbr"] for ch in channels]
     feat["global_mean_tbr"] = np.mean(tbr_vals)
     feat["global_mean_spec_entropy"] = np.mean([feat[f"{ch}_spec_entropy"] for ch in channels])
 
+    # -------- FFT features --------
+    fft_feat = fft_features_epoch(epoch, channels)
+    feat.update(fft_feat)
+
     return feat
+
 
 
 # -------- Build epochs from CSV --------
@@ -165,7 +202,9 @@ def build_epochs_from_csv(csv_path):
     label_map = {"Control":0, "ADHD":1}
     y_epochs, X_features, groups = [], [], []
 
-    for subject_id, sub_df in tqdm(df.groupby("ID")):
+    subjects = list(df["ID"].unique())
+    for subject_id in tqdm(subjects, desc="Przetwarzanie pacjentów"):
+        sub_df = df[df["ID"] == subject_id]
         data = sub_df[channels].values.T  # shape (n_channels, n_time)
         n_samples = data.shape[1]
         if n_samples < EPOCH_SAMPLES:
@@ -174,14 +213,13 @@ def build_epochs_from_csv(csv_path):
         y_val = label_map.get(label, None)
         if y_val is None: continue
 
-        start = 0
-        while start + EPOCH_SAMPLES <= n_samples:
+        starts = range(0, n_samples - EPOCH_SAMPLES + 1, EPOCH_STEP)
+        for start in tqdm(starts, desc=f"Epoki dla pacjenta {subject_id}", leave=False):
             epoch = data[:, start:start+EPOCH_SAMPLES]
             feats = extract_features_epoch(epoch, channels)
             X_features.append(feats)
             y_epochs.append(y_val)
             groups.append(subject_id)
-            start += EPOCH_STEP
 
     X_df = pd.DataFrame(X_features)
     y = np.array(y_epochs)
@@ -191,7 +229,7 @@ def build_epochs_from_csv(csv_path):
 # -------- Main --------
 if __name__ == "__main__":
     X_df, y, groups = build_epochs_from_csv(CSV_PATH)
-    print(f"Zbudowano {len(X_df)} epok od {len(np.unique(groups))} pacjentów.")
+    print(f"\nZbudowano {len(X_df)} epok od {len(np.unique(groups))} pacjentów.\n")
 
     X_df = X_df.replace([np.inf, -np.inf], np.nan).fillna(0.0)
     scaler = StandardScaler()
@@ -201,14 +239,20 @@ if __name__ == "__main__":
     gkf = GroupKFold(n_splits=5)
 
     aucs, bal_accs, mccs = [], [], []
-    for train_idx, test_idx in gkf.split(X, y, groups):
+    for i, (train_idx, test_idx) in enumerate(tqdm(gkf.split(X, y, groups), total=gkf.get_n_splits(), desc="Walidacja krzyżowa")):
         clf.fit(X[train_idx], y[train_idx])
         probs = clf.predict_proba(X[test_idx])[:,1]
         preds = clf.predict(X[test_idx])
-        aucs.append(roc_auc_score(y[test_idx], probs))
-        bal_accs.append(balanced_accuracy_score(y[test_idx], preds))
-        mccs.append(matthews_corrcoef(y[test_idx], preds))
+        auc = roc_auc_score(y[test_idx], probs)
+        bal_acc = balanced_accuracy_score(y[test_idx], preds)
+        mcc = matthews_corrcoef(y[test_idx], preds)
 
+        aucs.append(auc)
+        bal_accs.append(bal_acc)
+        mccs.append(mcc)
+        print(f"Fold {i+1}: AUC={auc:.3f}, Balanced Acc={bal_acc:.3f}, MCC={mcc:.3f}")
+
+    print("\n--- PODSUMOWANIE ---")
     print(f"AUC: {np.mean(aucs):.3f} ± {np.std(aucs):.3f}")
     print(f"Balanced acc: {np.mean(bal_accs):.3f}")
     print(f"MCC: {np.mean(mccs):.3f}")
