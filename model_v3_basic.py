@@ -1,7 +1,23 @@
 # eeg_adhd_feature_pipeline.py
 #wynik ok 70%
 
-#2. Dodanie cech FFT do ekstrakcji cech
+#2. Dodanie cech FFT do ekstrakcji cech. WYNIK:
+# Zbudowano 16749 epok od 121 pacjentów.
+#
+# Walidacja krzyżowa:  20%|██        | 1/5 [01:02<04:08, 62.24s/it]Fold 1: AUC=0.745, Balanced Acc=0.674, MCC=0.349
+# Fold 2: AUC=0.956, Balanced Acc=0.846, MCC=0.660
+# Walidacja krzyżowa:  60%|██████    | 3/5 [03:09<02:06, 63.28s/it]Fold 3: AUC=0.867, Balanced Acc=0.783, MCC=0.578
+# Walidacja krzyżowa:  80%|████████  | 4/5 [04:09<01:02, 62.11s/it]Fold 4: AUC=0.857, Balanced Acc=0.774, MCC=0.491
+# Fold 5: AUC=0.915, Balanced Acc=0.842, MCC=0.679
+# Walidacja krzyżowa: 100%|██████████| 5/5 [05:14<00:00, 62.91s/it]
+#
+# --- PODSUMOWANIE ---
+# AUC: 0.868 ± 0.071
+# Balanced acc: 0.784
+# MCC: 0.551
+#
+# Process finished with exit code 0
+
 
 
 from pathlib import Path
