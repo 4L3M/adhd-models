@@ -103,6 +103,11 @@ def EEGNet(nb_classes, Chans, Samples, dropoutRate=0.5, kernLength=64, F1=8, D=2
 unique_subjects = np.unique(groups)
 all_aucs, all_bal_accs = [], []
 
+RESULTS_FILE = "LOSO_EEGNet_TBR_results.txt"
+
+with open(RESULTS_FILE, "w") as f:
+    f.write("=== Wyniki LOSO EEGNet+TBR ===\n\n")
+
 print(f"Rozpoczynam LOSO dla {len(unique_subjects)} pacjentów...")
 
 for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
@@ -128,7 +133,7 @@ for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
 
     # Train
     print(f"\n[Pacjent {i + 1}/{len(unique_subjects)}] ID={subj}: Trening...")
-    model.fit(
+    history = model.fit(
         {"input_layer": X_train, "Feat_input": X_train_feats},
         y_train_cat,
         validation_data=({"input_layer": X_test, "Feat_input": X_test_feats}, y_test_cat),
@@ -143,5 +148,27 @@ for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
     auc = roc_auc_score(y_test, probs[:, 1])
     all_aucs.append(auc)
     print(f"[Pacjent {i + 1}/{len(unique_subjects)}] AUC={auc:.3f}")
+
+    # ---- zapisz wynik cząstkowy ----
+    with open(RESULTS_FILE, "a") as f:
+        f.write(f"Pacjent {i + 1}/{len(unique_subjects)} (ID={subj})\n")
+        f.write(f"AUC={auc:.4f}\n")
+        f.write("Historia treningu (ostatnie epoki):\n")
+        for e in range(len(history.history["loss"])):
+            f.write(f"  Epoka {e + 1:02d} - "
+                    f"loss={history.history['loss'][e]:.4f}, "
+                    f"acc={history.history['accuracy'][e]:.4f}, "
+                    f"val_loss={history.history['val_loss'][e]:.4f}, "
+                    f"val_acc={history.history['val_accuracy'][e]:.4f}\n")
+        f.write("\n")
+
+# ---- zapisz wynik końcowy ----
+mean_auc = np.mean(all_aucs)
+std_auc = np.std(all_aucs)
+print(f"LOSO EEGNet+TBR results: AUC={mean_auc:.3f} ± {std_auc:.3f}")
+
+with open(RESULTS_FILE, "a") as f:
+    f.write("=== PODSUMOWANIE ===\n")
+    f.write(f"Średni AUC={mean_auc:.4f}, Odchylenie std={std_auc:.4f}\n")
 
 print(f"LOSO EEGNet+TBR results: AUC={np.mean(all_aucs):.3f} ± {np.std(all_aucs):.3f}")
