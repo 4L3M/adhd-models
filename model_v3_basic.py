@@ -36,8 +36,7 @@ from sklearn.metrics import roc_auc_score, balanced_accuracy_score, precision_re
 from tqdm import tqdm
 
 # -------- CONFIG --------
-CSV_PATH = "your_dataset.csv"   # <- zmień na swoją ścieżkę
-FS = 128                        # sampling rate
+FS = 128  # sampling rate
 EPOCH_SEC = 2                   # długość epoki w sekundach
 EPOCH_SAMPLES = int(EPOCH_SEC * FS)
 EPOCH_STEP = EPOCH_SAMPLES // 2  # 50% overlap

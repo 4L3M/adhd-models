@@ -1,3 +1,4 @@
+joblib
 numpy
 pandas
 scipy
@@ -5,3 +6,4 @@ scikit-learn
 tensorflow
 tqdm
 kagglehub
+xgboost>=2.0.0
