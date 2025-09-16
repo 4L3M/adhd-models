@@ -1,40 +1,38 @@
-# eeg_adhhd_feature_pipeline_xgb_loso.py
+# eeg_adhhd_feature_pipeline_xgb_kfold.py
 # Klasyfikator XGBoost (XGBClassifier) z early stopping
-# Walidacja: Leave-One-Subject-Out (LOSO)
-# Wyniki zapisują się do pliku TXT + CSV
+# Walidacja: K-Fold Cross-Validation
+# Wyniki zapisują się do pliku TXT + CSV + modeli per fold
 
-"""
-EEG ADHD Feature Pipeline z XGBoost + LOSO cross-validation
-
-Ten skrypt implementuje pipeline do klasyfikacji ADHD vs Control na podstawie sygnałów EEG.
-Wykorzystuje bogaty zestaw cech z każdej epoki (okno 2s, 50% overlap):
-
-1. Cechy czasowe:
-   - średnia, wariancja, odchylenie, skośność, kurtoza
-   - RMS, peak-to-peak, zero-crossing rate
-   - parametry Hjortha (aktywność, mobilność, złożoność)
-
-2. Cechy częstotliwościowe:
-   - moc pasmowa (Welch) w pasmach: delta, theta, alpha, beta, gamma
-   - relatywna moc pasmowa
-   - całkowita moc, TBR (theta/beta ratio)
-   - entropia spektralna
-
-3. Cechy FFT:
-   - max, średnia, odchylenie, energia
-   - energia w pasmach (absolutna i relatywna)
-
-4. Agregaty globalne:
-   - średnia i std mocy pasmowej po kanałach
-   - globalne TBR i entropia spektralna
-
-Ulepszenia zastosowane w pipeline:
-- Walidacja LOSO (Leave-One-Subject-Out) – pełna generalizacja między pacjentami
-- XGBoost z early stopping
-- Standaryzacja cech osobno w każdym foldzie
-- Zapisywanie wyników do TXT + CSV + modeli per pacjent
-
-"""
+#WYNIKI =========================
+# --- PODSUMOWANIE ---
+# AUC: 1.000 ± 0.000
+# Balanced acc: 0.992
+# MCC: 0.984
+#
+# Top 20 features (by importance):
+#                 feature  importance
+#           Pz_relbp_beta    0.075248
+#                  Fz_zcr    0.020382
+#          Pz_relbp_gamma    0.018225
+#         P3_spec_entropy    0.016864
+#     Cz_fft_energy_alpha    0.009936
+#              C3_fft_max    0.009433
+# P3_fft_rel_energy_alpha    0.007173
+#          P7_relbp_theta    0.006725
+#              P3_fft_max    0.006647
+#             P3_fft_mean    0.006499
+#          Cz_total_power    0.006319
+#      Cz_hjorth_activity    0.006047
+#                  P7_var    0.005490
+#      Fz_hjorth_mobility    0.005375
+#      Cz_fft_energy_beta    0.005193
+#             C3_bp_alpha    0.005162
+#                  T7_std    0.005037
+#                  Cz_std    0.004796
+#                  Pz_rms    0.004733
+#             Pz_fft_mean    0.004624
+#
+# Process finished with exit code 0
 
 from pathlib import Path
 from tqdm import tqdm
@@ -44,7 +42,7 @@ from numpy.fft import rfft, rfftfreq
 import pandas as pd
 from scipy.signal import welch
 from scipy.stats import skew, kurtosis
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score, balanced_accuracy_score, matthews_corrcoef
 from sklearn.utils import shuffle
@@ -53,10 +51,6 @@ from xgboost import XGBClassifier, callback
 import joblib
 import os
 
-MODEL_DIR = "xgb_models"  # nazwa folderu
-os.makedirs(MODEL_DIR, exist_ok=True)
-
-
 # -------- CONFIG --------
 FS = 128
 EPOCH_SEC = 4
@@ -64,6 +58,9 @@ EPOCH_SAMPLES = int(EPOCH_SEC * FS)
 EPOCH_STEP = EPOCH_SAMPLES // 2
 BANDS = {"delta": (1, 4), "theta": (4, 8), "alpha": (8, 13), "beta": (13, 30), "gamma": (30, 45)}
 RANDOM_STATE = 42
+K_FOLDS = 5
+MODEL_DIR = "xgb_models"
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 # pobranie datasetu z kagglehub
 path = kagglehub.dataset_download("danizo/eeg-dataset-for-adhd")
@@ -211,26 +208,21 @@ if __name__ == "__main__":
     scaler = StandardScaler()
     X = scaler.fit_transform(X_df.values)
 
-    joblib.dump(scaler, "scaler_xgb_loso.joblib")
-    pd.Series(X_df.columns).to_csv("feature_names_loso.csv", index=False)
+    joblib.dump(scaler, "scaler_xgb_kfold.joblib")
+    pd.Series(X_df.columns).to_csv("feature_names_kfold.csv", index=False)
 
     aucs, bal_accs, mccs = [], [], []
     feature_importances = np.zeros(X.shape[1])
 
-    # -------- LOSO --------
-    unique_subjects = np.unique(groups)
+    skf = StratifiedKFold(n_splits=K_FOLDS, shuffle=True, random_state=RANDOM_STATE)
 
-    with open("xgb_results_loso_poprawione.txt", "w", encoding="utf-8") as f:
-        for i, subject in enumerate(tqdm(unique_subjects, desc="LOSO")):
-            test_idx = np.where(groups == subject)[0]
-            train_idx = np.where(groups != subject)[0]
+    with open("xgb_results_kfold.txt", "w", encoding="utf-8") as f:
+        for i, (train_idx, test_idx) in enumerate(tqdm(skf.split(X, y), desc="K-Fold CV")):
+            X_train_full_raw, y_train_full = X[train_idx], y[train_idx]
+            X_test_raw, y_test = X[test_idx], y[test_idx]
 
-            X_train_full_raw, y_train_full = X_df.values[train_idx], y[train_idx]
-            X_test_raw, y_test = X_df.values[test_idx], y[test_idx]
-
-            # szybkie info do debugowania
             f.write(
-                f"\nFold {i + 1} subject={subject} train_samples={len(X_train_full_raw)} test_samples={len(X_test_raw)} "
+                f"\nFold {i + 1} train_samples={len(X_train_full_raw)} test_samples={len(X_test_raw)} "
                 f"test_label_counts={np.bincount(y_test)}\n")
 
             # fit scaler tylko na train
@@ -238,7 +230,7 @@ if __name__ == "__main__":
             X_train_full = fold_scaler.fit_transform(X_train_full_raw)
             X_test = fold_scaler.transform(X_test_raw)
 
-            # split train/val dla early stopping (stratify jeśli obie klasy są w train)
+            # split train/val dla early stopping
             stratify_arg = y_train_full if len(np.unique(y_train_full)) > 1 else None
             X_tr, X_val, y_tr, y_val = train_test_split(
                 X_train_full, y_train_full,
@@ -262,35 +254,26 @@ if __name__ == "__main__":
                 random_state=RANDOM_STATE,
                 use_label_encoder=False,
                 eval_metric="auc",
-                tree_method="hist",  # szybsze na CPU
+                tree_method="hist",
                 n_jobs=-1,
-                verbosity=1,  # <-- włącz logowanie
+                verbosity=1,
                 callbacks=[early_stop]
             )
 
-            print(f"\n=== Trenowanie fold {i + 1}/{len(unique_subjects)} "
-                  f"(subject={subject}, train={len(X_tr)}, val={len(X_val)}, test={len(X_test)}) ===")
+            print(f"\n=== Trenowanie fold {i + 1}/{K_FOLDS} "
+                  f"(train={len(X_tr)}, val={len(X_val)}, test={len(X_test)}) ===")
 
             clf.fit(
                 X_tr,
                 y_tr,
                 eval_set=[(X_val, y_val)],
-                verbose=50  # <-- co ile rund logować (np. co 50)
+                verbose=50
             )
-
-            print(
-                f"✔ Fold {i + 1}/{len(unique_subjects)} zakończony. Najlepsza iteracja: {getattr(clf, 'best_iteration', 'brak')}")
 
             probs = clf.predict_proba(X_test)[:, 1]
             preds = clf.predict(X_test)
 
-            # AUC only if both classes present in y_test
-            if len(np.unique(y_test)) > 1:
-                auc = roc_auc_score(y_test, probs)
-            else:
-                auc = np.nan
-                f.write(f"  WARNING: only one class in test set for subject {subject}; AUC set to nan\n")
-
+            auc = roc_auc_score(y_test, probs) if len(np.unique(y_test)) > 1 else np.nan
             bal_acc = balanced_accuracy_score(y_test, preds)
             mcc = matthews_corrcoef(y_test, preds)
 
@@ -298,22 +281,23 @@ if __name__ == "__main__":
             bal_accs.append(bal_acc)
             mccs.append(mcc)
 
-            f.write(f"Subject {subject} (Fold {i + 1}): AUC={auc if not np.isnan(auc) else 'nan'}, "
+            f.write(f"Fold {i + 1}: AUC={auc if not np.isnan(auc) else 'nan'}, "
                     f"Balanced Acc={bal_acc:.3f}, MCC={mcc:.3f}\n")
 
             if hasattr(clf, "feature_importances_"):
                 feature_importances += clf.feature_importances_
 
-            joblib.dump(clf, os.path.join(MODEL_DIR, f"xgb_model_loso_subject{subject}.joblib"))
-        feature_importances /= len(unique_subjects)
+            joblib.dump(clf, os.path.join(MODEL_DIR, f"xgb_model_kfold_fold{i+1}.joblib"))
+
+        feature_importances /= K_FOLDS
         fi_df = pd.DataFrame({
             "feature": X_df.columns,
             "importance": feature_importances
         }).sort_values("importance", ascending=False)
-        fi_df.to_csv("xgb_feature_importances_loso.csv", index=False)
+        fi_df.to_csv("xgb_feature_importances_kfold.csv", index=False)
 
         f.write("\n--- PODSUMOWANIE ---\n")
-        f.write(f"AUC: {np.mean(aucs):.3f} ± {np.std(aucs):.3f}\n")
+        f.write(f"AUC: {np.nanmean(aucs):.3f} ± {np.nanstd(aucs):.3f}\n")
         f.write(f"Balanced acc: {np.mean(bal_accs):.3f}\n")
         f.write(f"MCC: {np.mean(mccs):.3f}\n")
 
@@ -322,9 +306,8 @@ if __name__ == "__main__":
         f.write("\n")
 
     print("\n--- PODSUMOWANIE ---")
-    print(f"AUC: {np.mean(aucs):.3f} ± {np.std(aucs):.3f}")
+    print(f"AUC: {np.nanmean(aucs):.3f} ± {np.nanstd(aucs):.3f}")
     print(f"Balanced acc: {np.mean(bal_accs):.3f}")
     print(f"MCC: {np.mean(mccs):.3f}")
-
     print("\nTop 20 features (by importance):")
     print(fi_df.head(20).to_string(index=False))

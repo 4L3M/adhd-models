@@ -10,7 +10,11 @@ from tqdm import tqdm
 import tensorflow as tf
 from tensorflow.keras import layers, models, Input
 from tensorflow.keras.layers import Dense, Concatenate
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import (
+    roc_auc_score, accuracy_score, balanced_accuracy_score,
+    precision_score, recall_score, f1_score
+)
+from sklearn.model_selection import StratifiedKFold
 import mne
 import kagglehub
 
@@ -25,7 +29,7 @@ FS = 128
 EPOCH_SEC = 2
 EPOCH_SAMPLES = EPOCH_SEC * FS
 EPOCH_STEP = EPOCH_SAMPLES // 2
-MODEL_SAVE_DIR = "EEGNet_LOSO_models2"
+MODEL_SAVE_DIR = "EEGNet_kfold_models2"
 os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
 # -------- Load CSV and build epochs (surowe sygnały) --------
@@ -99,21 +103,19 @@ def EEGNet(nb_classes, Chans, Samples, dropoutRate=0.5, kernLength=64, F1=8, D=2
     model = models.Model(inputs=input1, outputs=dense)
     return model
 
-# -------- LOSO training --------
-unique_subjects = np.unique(groups)
-all_aucs, all_bal_accs = [], []
+# -------- K-FOLD training --------
+n_splits = 5
+kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
 
-RESULTS_FILE = "LOSO_EEGNet_TBR_results.txt"
+all_results = []
 
+RESULTS_FILE = "KFold_EEGNet_TBR_results.txt"
 with open(RESULTS_FILE, "w") as f:
-    f.write("=== Wyniki LOSO EEGNet+TBR ===\n\n")
+    f.write("=== Wyniki K-Fold EEGNet+TBR ===\n\n")
 
-print(f"Rozpoczynam LOSO dla {len(unique_subjects)} pacjentów...")
+print(f"Rozpoczynam K-Fold (k={n_splits})...")
 
-for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
-    train_idx = groups != subj
-    test_idx = groups == subj
-
+for fold, (train_idx, test_idx) in enumerate(kf.split(X_epochs, y_epochs)):
     X_train, X_test = X_epochs[train_idx], X_epochs[test_idx]
     X_train_feats, X_test_feats = features[train_idx], features[test_idx]
     y_train, y_test = y_epochs[train_idx], y_epochs[test_idx]
@@ -132,7 +134,7 @@ for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
     model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 
     # Train
-    print(f"\n[Pacjent {i + 1}/{len(unique_subjects)}] ID={subj}: Trening...")
+    print(f"\n[Fold {fold + 1}/{n_splits}] Trening...")
     history = model.fit(
         {"input_layer": X_train, "Feat_input": X_train_feats},
         y_train_cat,
@@ -141,18 +143,40 @@ for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
     )
 
     # Save model
-    model.save(os.path.join(MODEL_SAVE_DIR, f"EEGNet_subj_{subj}.h5"))
+    model.save(os.path.join(MODEL_SAVE_DIR, f"EEGNet_fold_{fold+1}.h5"))
 
     # Evaluate
     probs = model.predict({"input_layer": X_test, "Feat_input": X_test_feats}, verbose=0)
+    preds = np.argmax(probs, axis=1)
+
     auc = roc_auc_score(y_test, probs[:, 1])
-    all_aucs.append(auc)
-    print(f"[Pacjent {i + 1}/{len(unique_subjects)}] AUC={auc:.3f}")
+    acc = accuracy_score(y_test, preds)
+    bal_acc = balanced_accuracy_score(y_test, preds)
+    prec = precision_score(y_test, preds)
+    rec = recall_score(y_test, preds)
+    f1 = f1_score(y_test, preds)
+
+    fold_results = {
+        "fold": fold+1,
+        "AUC": auc,
+        "Accuracy": acc,
+        "Balanced_Accuracy": bal_acc,
+        "Precision": prec,
+        "Recall": rec,
+        "F1": f1
+    }
+    all_results.append(fold_results)
+
+    print(f"[Fold {fold + 1}/{n_splits}] "
+          f"AUC={auc:.3f}, Acc={acc:.3f}, BalAcc={bal_acc:.3f}, "
+          f"Prec={prec:.3f}, Rec={rec:.3f}, F1={f1:.3f}")
 
     # ---- zapisz wynik cząstkowy ----
     with open(RESULTS_FILE, "a") as f:
-        f.write(f"Pacjent {i + 1}/{len(unique_subjects)} (ID={subj})\n")
-        f.write(f"AUC={auc:.4f}\n")
+        f.write(f"Fold {fold + 1}/{n_splits}\n")
+        for k, v in fold_results.items():
+            if k != "fold":
+                f.write(f"{k}={v:.4f}\n")
         f.write("Historia treningu (ostatnie epoki):\n")
         for e in range(len(history.history["loss"])):
             f.write(f"  Epoka {e + 1:02d} - "
@@ -163,12 +187,14 @@ for i, subj in enumerate(tqdm(unique_subjects, desc="LOSO subjects")):
         f.write("\n")
 
 # ---- zapisz wynik końcowy ----
-mean_auc = np.mean(all_aucs)
-std_auc = np.std(all_aucs)
-print(f"LOSO EEGNet+TBR results: AUC={mean_auc:.3f} ± {std_auc:.3f}")
+mean_results = {k: np.mean([r[k] for r in all_results]) for k in all_results[0] if k != "fold"}
+std_results = {k: np.std([r[k] for r in all_results]) for k in all_results[0] if k != "fold"}
+
+print("\n=== PODSUMOWANIE ===")
+for k in mean_results:
+    print(f"{k}: {mean_results[k]:.3f} ± {std_results[k]:.3f}")
 
 with open(RESULTS_FILE, "a") as f:
     f.write("=== PODSUMOWANIE ===\n")
-    f.write(f"Średni AUC={mean_auc:.4f}, Odchylenie std={std_auc:.4f}\n")
-
-print(f"LOSO EEGNet+TBR results: AUC={np.mean(all_aucs):.3f} ± {np.std(all_aucs):.3f}")
+    for k in mean_results:
+        f.write(f"{k}={mean_results[k]:.4f} ± {std_results[k]:.4f}\n")
