@@ -1,0 +1,35 @@
+=== Wyniki LOSO EEGNet+TBR+FFT ===
+
+Pacjent 1/121 (ID=v107)
+Acc=0.9869, Sens=0.0000, Spec=0.9869, BalAcc=0.9869
+  Epoka 01 - loss=1.4493, acc=0.7326, val_loss=0.9364, val_acc=0.9477
+  Epoka 02 - loss=0.7532, acc=0.8570, val_loss=1.4512, val_acc=0.9542
+  Epoka 03 - loss=0.8158, acc=0.8844, val_loss=0.0000, val_acc=1.0000
+  Epoka 04 - loss=0.7329, acc=0.9074, val_loss=0.0000, val_acc=1.0000
+  Epoka 05 - loss=0.6615, acc=0.9206, val_loss=1.8457, val_acc=0.9346
+  Epoka 06 - loss=0.5595, acc=0.9307, val_loss=0.0000, val_acc=1.0000
+  Epoka 07 - loss=0.7222, acc=0.9314, val_loss=2.4910, val_acc=0.9542
+  Epoka 08 - loss=0.4730, acc=0.9434, val_loss=0.0000, val_acc=1.0000
+  Epoka 09 - loss=0.4318, acc=0.9485, val_loss=0.0000, val_acc=1.0000
+  Epoka 10 - loss=0.3991, acc=0.9505, val_loss=3.0633, val_acc=0.9281
+  Epoka 11 - loss=0.3016, acc=0.9555, val_loss=0.0000, val_acc=1.0000
+  Epoka 12 - loss=0.6105, acc=0.9541, val_loss=0.0203, val_acc=0.9935
+  Epoka 13 - loss=0.3756, acc=0.9602, val_loss=0.0000, val_acc=1.0000
+  Epoka 14 - loss=0.2944, acc=0.9612, val_loss=0.0000, val_acc=1.0000
+  Epoka 15 - loss=0.2170, acc=0.9666, val_loss=9.5335, val_acc=0.9216
+  Epoka 16 - loss=0.2489, acc=0.9673, val_loss=3.3823, val_acc=0.9281
+  Epoka 17 - loss=0.2562, acc=0.9692, val_loss=0.1793, val_acc=0.9804
+  Epoka 18 - loss=0.2029, acc=0.9679, val_loss=0.3856, val_acc=0.9739
+  Epoka 19 - loss=0.1429, acc=0.9701, val_loss=2.2866, val_acc=0.9281
+  Epoka 20 - loss=0.1681, acc=0.9719, val_loss=0.4296, val_acc=0.9739
+  Epoka 21 - loss=0.1088, acc=0.9734, val_loss=0.0000, val_acc=1.0000
+  Epoka 22 - loss=0.0928, acc=0.9775, val_loss=0.1261, val_acc=0.9935
+  Epoka 23 - loss=0.0756, acc=0.9796, val_loss=0.3515, val_acc=0.9608
+  Epoka 24 - loss=0.0775, acc=0.9781, val_loss=1.3583, val_acc=0.9412
+  Epoka 25 - loss=0.0726, acc=0.9799, val_loss=0.0125, val_acc=0.9935
+  Epoka 26 - loss=0.0640, acc=0.9796, val_loss=0.0173, val_acc=0.9935
+  Epoka 27 - loss=0.0652, acc=0.9787, val_loss=0.0623, val_acc=0.9869
+  Epoka 28 - loss=0.0539, acc=0.9825, val_loss=0.2333, val_acc=0.9804
+  Epoka 29 - loss=0.0486, acc=0.9829, val_loss=0.1105, val_acc=0.9869
+  Epoka 30 - loss=0.0562, acc=0.9804, val_loss=0.0594, val_acc=0.9869
+
