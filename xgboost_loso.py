@@ -1,9 +1,3 @@
-# eeg_adhhd_feature_pipeline_xgb_kfold.py
-# Klasyfikator XGBoost (XGBClassifier) z early stopping
-# Walidacja: K-Fold Cross-Validation - gfk
-# Wyniki zapisują się do pliku TXT + CSV + modeli per fold
-
-
 from pathlib import Path
 from tqdm import tqdm
 import kagglehub
@@ -12,7 +6,6 @@ from numpy.fft import rfft, rfftfreq
 import pandas as pd
 from scipy.signal import welch
 from scipy.stats import skew, kurtosis
-from sklearn.model_selection import train_test_split, StratifiedKFold, GroupKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score, balanced_accuracy_score, matthews_corrcoef
 from sklearn.utils import shuffle
@@ -21,6 +14,7 @@ from xgboost import XGBClassifier, callback
 import joblib
 import os
 
+
 # -------- CONFIG --------
 FS = 128
 EPOCH_SEC = 4
@@ -28,9 +22,19 @@ EPOCH_SAMPLES = int(EPOCH_SEC * FS)
 EPOCH_STEP = EPOCH_SAMPLES // 2
 BANDS = {"delta": (1, 4), "theta": (4, 8), "alpha": (8, 13), "beta": (13, 30), "gamma": (30, 45)}
 RANDOM_STATE = 42
-K_FOLDS = 5
-MODEL_DIR = "xgb_models"
-os.makedirs(MODEL_DIR, exist_ok=True)
+
+# --- ZAPIS NA PULPICIE ---
+desktop_dir = Path.home() / "Desktop"
+save_dir = desktop_dir / "eeg_xgb_loso"
+save_dir.mkdir(parents=True, exist_ok=True)
+
+MODEL_DIR = save_dir / "xgb_models"
+MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+scaler_path = save_dir / "scaler_xgb_loso.joblib"
+feature_names_path = save_dir / "feature_names_loso.csv"
+results_path = save_dir / "xgb_results_loso.txt"
+feature_importances_path = save_dir / "xgb_feature_importances_loso.csv"
 
 # pobranie datasetu z kagglehub
 path = kagglehub.dataset_download("danizo/eeg-dataset-for-adhd")
@@ -175,41 +179,27 @@ if __name__ == "__main__":
     X_df = X_df.replace([np.inf, -np.inf], np.nan).fillna(0.0)
     X_df, y, groups = shuffle(X_df, y, groups, random_state=RANDOM_STATE)
 
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X_df.values)
-
-    joblib.dump(scaler, "scaler_xgb_kfold.joblib")
-    pd.Series(X_df.columns).to_csv("feature_names_kfold.csv", index=False)
+    joblib.dump(StandardScaler().fit(X_df.values), scaler_path)
+    pd.Series(X_df.columns).to_csv(feature_names_path, index=False)
 
     aucs, bal_accs, mccs = [], [], []
-    feature_importances = np.zeros(X.shape[1])
+    feature_importances = np.zeros(X_df.shape[1])
 
-    # skf = StratifiedKFold(n_splits=K_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    subjects = np.unique(groups)
+    with open(results_path, "w", encoding="utf-8") as f:
+        for i, subject_id in enumerate(tqdm(subjects, desc="LOSO CV")):
+            test_idx = np.where(groups == subject_id)[0]
+            train_idx = np.where(groups != subject_id)[0]
 
-    gkf = GroupKFold(n_splits=K_FOLDS)
-
-    with open("xgb_results_kfold.txt", "w", encoding="utf-8") as f:
-        for i, (train_idx, test_idx) in enumerate(tqdm(gkf.split(X, y, groups), desc="GroupKFold CV")):
-            X_train_full_raw, y_train_full = X[train_idx], y[train_idx]
-            X_test_raw, y_test = X[test_idx], y[test_idx]
-
-            f.write(
-                f"\nFold {i + 1} train_samples={len(X_train_full_raw)} test_samples={len(X_test_raw)} "
-                f"test_label_counts={np.bincount(y_test)}\n")
+            X_train, y_train = X_df.values[train_idx], y[train_idx]
+            X_test, y_test = X_df.values[test_idx], y[test_idx]
 
             # fit scaler tylko na train
             fold_scaler = StandardScaler()
-            X_train_full = fold_scaler.fit_transform(X_train_full_raw)
-            X_test = fold_scaler.transform(X_test_raw)
+            X_train_scaled = fold_scaler.fit_transform(X_train)
+            X_test_scaled = fold_scaler.transform(X_test)
 
-            # split train/val dla early stopping
-            stratify_arg = y_train_full if len(np.unique(y_train_full)) > 1 else None
-            X_tr, X_val, y_tr, y_val = train_test_split(
-                X_train_full, y_train_full,
-                test_size=0.1, stratify=stratify_arg, random_state=RANDOM_STATE
-            )
-            pos_weight = (len(y_train_full) - np.sum(y_train_full)) / (np.sum(y_train_full) + 1e-12)
-
+            pos_weight = (len(y_train) - np.sum(y_train)) / (np.sum(y_train) + 1e-12)
             early_stop = callback.EarlyStopping(
                 rounds=30,
                 save_best=True,
@@ -232,18 +222,15 @@ if __name__ == "__main__":
                 callbacks=[early_stop]
             )
 
-            print(f"\n=== Trenowanie fold {i + 1}/{K_FOLDS} "
-                  f"(train={len(X_tr)}, val={len(X_val)}, test={len(X_test)}) ===")
-
             clf.fit(
-                X_tr,
-                y_tr,
-                eval_set=[(X_val, y_val)],
-                verbose=50
+                X_train_scaled,
+                y_train,
+                eval_set=[(X_train_scaled, y_train)],
+                verbose=0
             )
 
-            probs = clf.predict_proba(X_test)[:, 1]
-            preds = clf.predict(X_test)
+            probs = clf.predict_proba(X_test_scaled)[:, 1]
+            preds = clf.predict(X_test_scaled)
 
             auc = roc_auc_score(y_test, probs) if len(np.unique(y_test)) > 1 else np.nan
             bal_acc = balanced_accuracy_score(y_test, preds)
@@ -253,26 +240,26 @@ if __name__ == "__main__":
             bal_accs.append(bal_acc)
             mccs.append(mcc)
 
-            f.write(f"Fold {i + 1}: AUC={auc if not np.isnan(auc) else 'nan'}, "
+            f.write(f"Subject {subject_id}: test_samples={len(X_test_scaled)}, "
+                    f"AUC={auc if not np.isnan(auc) else 'nan'}, "
                     f"Balanced Acc={bal_acc:.3f}, MCC={mcc:.3f}\n")
 
             if hasattr(clf, "feature_importances_"):
                 feature_importances += clf.feature_importances_
 
-            joblib.dump(clf, os.path.join(MODEL_DIR, f"xgb_model_kfold_fold{i+1}.joblib"))
+            joblib.dump(clf, MODEL_DIR / f"xgb_model_loso_subject{subject_id}.joblib")
 
-        feature_importances /= K_FOLDS
+        feature_importances /= len(subjects)
         fi_df = pd.DataFrame({
             "feature": X_df.columns,
             "importance": feature_importances
         }).sort_values("importance", ascending=False)
-        fi_df.to_csv("xgb_feature_importances_kfold.csv", index=False)
+        fi_df.to_csv(feature_importances_path, index=False)
 
         f.write("\n--- PODSUMOWANIE ---\n")
         f.write(f"AUC: {np.nanmean(aucs):.3f} ± {np.nanstd(aucs):.3f}\n")
         f.write(f"Balanced acc: {np.mean(bal_accs):.3f}\n")
         f.write(f"MCC: {np.mean(mccs):.3f}\n")
-
         f.write("\nTop 20 features (by importance):\n")
         f.write(fi_df.head(20).to_string(index=False))
         f.write("\n")

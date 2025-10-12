@@ -5,7 +5,14 @@
       <paths name="qubit@156.17.41.204:22 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/tmp/pycharm_project_884" local="$PROJECT_DIR$" />
+            <mapping deploy="/tmp/pycharm_project_993" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="qubit@kn-qubit.iiar.pwr.edu.pl:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_843" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

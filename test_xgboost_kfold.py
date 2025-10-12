@@ -11,6 +11,37 @@ from model_v7_xgboost_kfold import (
     FS, EPOCH_SAMPLES, EPOCH_STEP, CSV_PATH
 )
 
+# #
+# --- PODSUMOWANIE ---
+# AUC: 0.854 ± 0.115
+# Balanced acc: 0.778
+# MCC: 0.559
+#
+# Top 20 features (by importance):
+#                 feature  importance
+#           Pz_relbp_beta    0.032090
+#                  Fz_zcr    0.024540
+#         P3_spec_entropy    0.019058
+#          Pz_relbp_gamma    0.013744
+#  Cz_fft_rel_energy_beta    0.011307
+# Cz_fft_rel_energy_alpha    0.007927
+#                  Pz_zcr    0.006600
+#  P4_fft_rel_energy_beta    0.006275
+#     Cz_fft_energy_alpha    0.006242
+#          Cz_total_power    0.005852
+# P3_fft_rel_energy_alpha    0.005635
+# C3_fft_rel_energy_alpha    0.005209
+#                  C3_zcr    0.004956
+#             F4_fft_mean    0.004857
+#    C3_hjorth_complexity    0.004797
+#                  T7_std    0.004775
+#      Cz_fft_energy_beta    0.004753
+#      F3_hjorth_mobility    0.004745
+#              P3_fft_max    0.004710
+#              Pz_bp_beta    0.004648
+
+
+
 # ---------------- CONFIG ----------------
 SCALER_PATH = "scaler_xgb_kfold.joblib"
 MODEL_PATH = "xgb_models/xgb_model_kfold_fold1.joblib"  # wybierz np. fold1

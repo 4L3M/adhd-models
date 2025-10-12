@@ -1,25 +1,3 @@
-# eeg_adhd_feature_pipeline.py
-#wynik ok 70%
-
-#2. Dodanie cech FFT do ekstrakcji cech. WYNIK:
-# Zbudowano 16749 epok od 121 pacjentów.
-#
-# Walidacja krzyżowa:  20%|██        | 1/5 [01:02<04:08, 62.24s/it]Fold 1: AUC=0.745, Balanced Acc=0.674, MCC=0.349
-# Fold 2: AUC=0.956, Balanced Acc=0.846, MCC=0.660
-# Walidacja krzyżowa:  60%|██████    | 3/5 [03:09<02:06, 63.28s/it]Fold 3: AUC=0.867, Balanced Acc=0.783, MCC=0.578
-# Walidacja krzyżowa:  80%|████████  | 4/5 [04:09<01:02, 62.11s/it]Fold 4: AUC=0.857, Balanced Acc=0.774, MCC=0.491
-# Fold 5: AUC=0.915, Balanced Acc=0.842, MCC=0.679
-# Walidacja krzyżowa: 100%|██████████| 5/5 [05:14<00:00, 62.91s/it]
-#
-# --- PODSUMOWANIE ---
-# AUC: 0.868 ± 0.071
-# Balanced acc: 0.784
-# MCC: 0.551
-#
-# Process finished with exit code 0
-
-
-
 from pathlib import Path
 
 from tqdm import tqdm
@@ -30,14 +8,24 @@ import pandas as pd
 from scipy.signal import welch
 from scipy.stats import skew, kurtosis
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GroupKFold
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_auc_score, balanced_accuracy_score, precision_recall_fscore_support, matthews_corrcoef
-from tqdm import tqdm
+from sklearn.metrics import roc_auc_score, balanced_accuracy_score, matthews_corrcoef
+
+# 2 sekundy epoch:
+# AUC: nan ± nan
+# Balanced acc: 0.786
+# MCC: 0.000
+
+# ----
+# 4 sek
+#   var = nanvar(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+# AUC: nan ± nan
+# Balanced acc: 0.787
+# MCC: 0.000
 
 # -------- CONFIG --------
 FS = 128  # sampling rate
-EPOCH_SEC = 2                   # długość epoki w sekundach
+EPOCH_SEC = 4                   # długość epoki w sekundach
 EPOCH_SAMPLES = int(EPOCH_SEC * FS)
 EPOCH_STEP = EPOCH_SAMPLES // 2  # 50% overlap
 BANDS = {"delta":(1,4), "theta":(4,8), "alpha":(8,13), "beta":(13,30), "gamma":(30,45)}
@@ -74,76 +62,24 @@ def hjorth_parameters(x):
 def zero_crossing_rate(x):
     return ((x[:-1] * x[1:]) < 0).sum() / len(x)
 
-# -------- Feature extraction per epoch --------
-# def extract_features_epoch(epoch, channels):
-#     n_ch, n_s = epoch.shape
-#     feat = {}
-#     for ci, ch in enumerate(channels):
-#         x = epoch[ci, :]
-#         # statystyki czasowe
-#         feat[f"{ch}_mean"] = np.mean(x)
-#         feat[f"{ch}_std"] = np.std(x)
-#         feat[f"{ch}_var"] = np.var(x)
-#         feat[f"{ch}_skew"] = skew(x)
-#         feat[f"{ch}_kurt"] = kurtosis(x)
-#         feat[f"{ch}_rms"] = np.sqrt(np.mean(x**2))
-#         feat[f"{ch}_ptp"] = np.ptp(x)
-#         feat[f"{ch}_zcr"] = zero_crossing_rate(x)
-#
-#         # Hjorth
-#         a,m,c = hjorth_parameters(x)
-#         feat[f"{ch}_hjorth_activity"] = a
-#         feat[f"{ch}_hjorth_mobility"] = m
-#         feat[f"{ch}_hjorth_complexity"] = c
-#
-#         # PSD
-#         f, Pxx = welch(x, fs=FS, nperseg=min(256, n_s))
-#         feat[f"{ch}_spec_entropy"] = spectral_entropy_from_psd(Pxx, f)
-#         total_power = 0.0
-#         band_pows = {}
-#         for band_name, band_range in BANDS.items():
-#             bp = bandpower_welch(x, FS, band_range, nperseg=min(256,n_s))
-#             band_pows[band_name] = bp
-#             feat[f"{ch}_bp_{band_name}"] = bp
-#             total_power += bp
-#         for band_name in BANDS.keys():
-#             denom = total_power if total_power > 0 else 1e-12
-#             feat[f"{ch}_relbp_{band_name}"] = band_pows[band_name] / denom
-#         feat[f"{ch}_total_power"] = total_power
-#
-#     # global features (uśrednione po kanałach)
-#     for band_name in BANDS.keys():
-#         vals = [feat[f"{ch}_bp_{band_name}"] for ch in channels]
-#         feat[f"global_mean_bp_{band_name}"] = np.mean(vals)
-#         feat[f"global_std_bp_{band_name}"] = np.std(vals)
-#     feat["global_mean_spec_entropy"] = np.mean([feat[f"{ch}_spec_entropy"] for ch in channels])
-#     return feat
-
-from numpy.fft import rfft, rfftfreq
-
 def fft_features_epoch(epoch, channels, fs=FS):
-    """Wyciąga cechy na podstawie FFT dla każdej epoki i kanału."""
     n_ch, n_s = epoch.shape
     feat = {}
     for ci, ch in enumerate(channels):
         x = epoch[ci, :]
-        # FFT
         fft_vals = np.abs(rfft(x))
         freqs = rfftfreq(n_s, 1/fs)
 
-        # cechy: max, średnia, energia w pasmach
         feat[f"{ch}_fft_max"] = np.max(fft_vals)
         feat[f"{ch}_fft_mean"] = np.mean(fft_vals)
         feat[f"{ch}_fft_std"] = np.std(fft_vals)
         feat[f"{ch}_fft_energy"] = np.sum(fft_vals**2)
 
-        # energia w pasmach EEG
         for band_name, (low, high) in BANDS.items():
             idx = np.logical_and(freqs >= low, freqs <= high)
             band_energy = np.sum(fft_vals[idx]**2)
-            feat[f"{ch}_fft_energy_{band_name}"] = band_energy
-            # względna energia
             total_energy = np.sum(fft_vals**2)
+            feat[f"{ch}_fft_energy_{band_name}"] = band_energy
             feat[f"{ch}_fft_rel_energy_{band_name}"] = band_energy / (total_energy + 1e-12)
     return feat
 
@@ -205,11 +141,8 @@ def extract_features_epoch(epoch, channels):
     return feat
 
 
-
-# -------- Build epochs from CSV --------
 def build_epochs_from_csv(csv_path):
     df = pd.read_csv(csv_path)
-    # automatyczne pobranie kanałów
     exclude = ["Class","ID"]
     channels = [c for c in df.columns if c not in exclude]
     print(f"Wykryto {len(channels)} kanałów EEG: {channels}")
@@ -241,7 +174,6 @@ def build_epochs_from_csv(csv_path):
     groups = np.array(groups)
     return X_df, y, groups
 
-# -------- Main --------
 if __name__ == "__main__":
     X_df, y, groups = build_epochs_from_csv(CSV_PATH)
     print(f"\nZbudowano {len(X_df)} epok od {len(np.unique(groups))} pacjentów.\n")
@@ -251,23 +183,37 @@ if __name__ == "__main__":
     X = scaler.fit_transform(X_df.values)
 
     clf = RandomForestClassifier(n_estimators=200, random_state=RANDOM_STATE, n_jobs=-1)
-    gkf = GroupKFold(n_splits=5)
 
+    subjects = np.unique(groups)
     aucs, bal_accs, mccs = [], [], []
-    for i, (train_idx, test_idx) in enumerate(tqdm(gkf.split(X, y, groups), total=gkf.get_n_splits(), desc="Walidacja krzyżowa")):
-        clf.fit(X[train_idx], y[train_idx])
-        probs = clf.predict_proba(X[test_idx])[:,1]
-        preds = clf.predict(X[test_idx])
-        auc = roc_auc_score(y[test_idx], probs)
-        bal_acc = balanced_accuracy_score(y[test_idx], preds)
-        mcc = matthews_corrcoef(y[test_idx], preds)
 
+    for i, subject_id in enumerate(tqdm(subjects, desc="LOSO CV")):
+        test_idx = np.where(groups == subject_id)[0]
+        train_idx = np.where(groups != subject_id)[0]
+
+        X_train, y_train = X[train_idx], y[train_idx]
+        X_test, y_test = X[test_idx], y[test_idx]
+
+        clf.fit(X_train, y_train)
+        probs = clf.predict_proba(X_test)[:,1]
+        preds = clf.predict(X_test)
+
+        # Uwaga: przy LOSO może być tylko jedna klasa w testowym foldzie, wtedy AUC/MCC nie mają sensu
+        if len(np.unique(y_test)) == 1:
+            auc = np.nan
+            mcc = 0.0
+        else:
+            auc = roc_auc_score(y_test, probs)
+            mcc = matthews_corrcoef(y_test, preds)
+
+        bal_acc = balanced_accuracy_score(y_test, preds)
         aucs.append(auc)
         bal_accs.append(bal_acc)
         mccs.append(mcc)
-        print(f"Fold {i+1}: AUC={auc:.3f}, Balanced Acc={bal_acc:.3f}, MCC={mcc:.3f}")
+
+        print(f"Subject {i+1}/{len(subjects)}: AUC={auc:.3f}, Balanced Acc={bal_acc:.3f}, MCC={mcc:.3f}")
 
     print("\n--- PODSUMOWANIE ---")
-    print(f"AUC: {np.mean(aucs):.3f} ± {np.std(aucs):.3f}")
+    print(f"AUC: {np.nanmean(aucs):.3f} ± {np.nanstd(aucs):.3f}")
     print(f"Balanced acc: {np.mean(bal_accs):.3f}")
     print(f"MCC: {np.mean(mccs):.3f}")
