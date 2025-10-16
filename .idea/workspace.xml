@@ -5,15 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="81d227d0-2a31-496b-9da6-c22025213f20" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/visualization-model7.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/xgboost_loso_reduced.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/PythonProject.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PythonProject.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deployment.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model_v3_basic.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_v3_basic.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model_v7_xgboost_kfold_gfk.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_v7_xgboost_kfold_refactor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_xgboost_kfold.py" beforeDir="false" afterPath="$PROJECT_DIR$/test_xgboost_kfold.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,30 +42,30 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.extract_features.executor": "Run",
-    "Python.extract_features2.executor": "Run",
-    "Python.model_v3_basic.executor": "Run",
-    "Python.model_v7_xgboost_kfold_refactor.executor": "Run",
-    "Python.test_xgboost_kfold.executor": "Run",
-    "Python.tests.executor": "Run",
-    "Python.visualization-model7.executor": "Run",
-    "Python.xgboost_gfk.executor": "Run",
-    "Python.xgboost_less_feat.executor": "Run",
-    "Python.xgboost_loso.executor": "Run",
-    "Python.xgboost_loso_reduced.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.extract_features.executor&quot;: &quot;Run&quot;,
+    &quot;Python.extract_features2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.model_v3_basic.executor&quot;: &quot;Run&quot;,
+    &quot;Python.model_v7_xgboost_kfold_refactor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_xgboost_kfold.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tests.executor&quot;: &quot;Run&quot;,
+    &quot;Python.visualization-model7.executor&quot;: &quot;Run&quot;,
+    &quot;Python.xgboost_gfk.executor&quot;: &quot;Run&quot;,
+    &quot;Python.xgboost_less_feat.executor&quot;: &quot;Run&quot;,
+    &quot;Python.xgboost_loso.executor&quot;: &quot;Run&quot;,
+    &quot;Python.xgboost_loso_reduced.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -95,7 +87,8 @@
       <workItem from="1760124816342" duration="1676000" />
       <workItem from="1760172416055" duration="16257000" />
       <workItem from="1760255486186" duration="1535000" />
-      <workItem from="1760257127916" duration="7796000" />
+      <workItem from="1760257127916" duration="9081000" />
+      <workItem from="1760523534501" duration="1978000" />
     </task>
     <servers />
   </component>
